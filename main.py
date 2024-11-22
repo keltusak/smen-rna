@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/uscer/bin/env python3
 
 from os.path import basename, splitext, exists
 import tkinter as tk
@@ -29,6 +29,7 @@ class MyEntry(tk.Entry):
 
 class Application(tk.Tk):
     name = "Foo"
+    filename = "kurzovni_listek.txt"
 
     def __init__(self):
         super().__init__(className=self.name)
@@ -68,69 +69,85 @@ class Application(tk.Tk):
         self.varTransaction.trace_add("write", self.transactionClick)
         self.rbtnPurchase.pack()
         self.rbtnSale.pack()
-        
-        self.cboxCountry= ttk.Combobox(self, values=[])
+
+        self.cboxCountry = ttk.Combobox(self, values=[])
         self.cboxCountry.set("Vyber zemi...")
         self.cboxCountry.pack(anchor="w", padx=5, pady=5)
         self.cboxCountry.bind("<<ComboboxSelected>>", self.on_select)
 
         self.lblCourse = tk.LabelFrame(self, text="Kurz")
-        self.lblCourse.pack(anchor='w', padx=5, pady=5)
+        self.lblCourse.pack(anchor="w", padx=5, pady=5)
         self.entryAmount = MyEntry(self.lblCourse, state="readonly")
         self.entryAmount.pack()
-        self.entryRate = MyEntry(self.lblCourse, state='readonly')
+        self.entryRate = MyEntry(self.lblCourse, state="readonly")
         self.entryRate.pack()
 
         self.btn = tk.Button(self, text="Quit", command=self.quit)
         self.btn.pack()
 
+        self.read_ticket()
+        self.on_select()
+
     def transactionClick(self, *arg):
         self.on_select()
-        print(self.rate)
 
-        
     def chbtnAutoClick(self):
         if self.varAuto.get():
             self.btnDownload.config(state="disabled")
+            self.download()
+            self.autoID = self.after(20000, self.autoDownload)
         else:
             self.btnDownload.config(state=tk.NORMAL)
+            self.after_cancel(self.autoID)
 
     def download(self):
         # stahuju aktuální kurzovní lístek z https://www.cnb.cz/en/financial_markets/foreign_exchange_market/exchange_rate_fixing/daily.txt
         # a uložím jej do souboru currency_exchange_rate.txt
-        filename = "currency_exchange_rate.txt"
-        URL='https://www.cnb.cz/en/financial_markets/foreign_exchange_market/exchange_rate_fixing/daily.txt'
+        URL = "https://www.cnb.cz/en/financial_markets/foreign_exchange_market/exchange_rate_fixing/daily.txt"
         try:
             response = requests.get(URL)
             data = response.text
-            with open('kurzovni_listek.txt', 'w') as f:
+            with open(self.filename, "w") as f:
                 f.write(data)
         except requests.exceptions.ConnectionError as e:
             print(f"Error: {e}")
-        if not exists('kurzovni_listek.txt'):
+        self.read_ticket()
+        self.on_select()
+
+    def read_ticket(self):
+        if not exists(self.filename):
             messagebox.showerror("Chyba:", "Kurzovní lístek nennalezen!")
             return
-        with open('kurzovni_listek.txt', 'r') as f:
+        with open(self.filename, "r") as f:
             data = f.read()
         self.ticket = {}
         for line in data.splitlines()[2:]:
-            country,currency,amount,code,rate = line.split('|')
+            country, currency, amount, code, rate = line.split("|")
             self.ticket[country] = {
-                'currency': currency,
-                'amount': amount,
-                'code': code,
-                'rate': rate,
+                "currency": currency,
+                "amount": amount,
+                "code": code,
+                "rate": rate,
             }
         self.cboxCountry.config(values=list(self.ticket.keys()))
 
+    def autoDownload(self):
+        self.download()
+        messagebox.showinfo("Download", "Bylo provedeno automatické stažení")
+        if self.varAuto.get():
+            self.autoID = self.after(20e3, self.autoDownload)
+
     def on_select(self, event=None):
         country = self.cboxCountry.get()
-        self.lblCourse.config(text=self.ticket[country]['code'])
-        self.amount = int(self.ticket[country]['amount'])
-        if self.varTransaction.get() == 'purchase':
-            self.rate = float(self.ticket[country]['rate']) * 0.96
+        if country == "Vyber zemi...":
+            country = list(self.ticket.keys())[0]
+            self.cboxCountry.set(country)
+        self.lblCourse.config(text=self.ticket[country]["code"])
+        self.amount = int(self.ticket[country]["amount"])
+        if self.varTransaction.get() == "purchase":
+            self.rate = float(self.ticket[country]["rate"]) * 0.96
         else:
-            self.rate = float(self.ticket[country]['rate']) * 1.04
+            self.rate = float(self.ticket[country]["rate"]) * 1.04
         self.entryAmount.value = str(self.amount)
         self.entryRate.value = str(self.rate)
 
