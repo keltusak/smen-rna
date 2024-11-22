@@ -65,7 +65,7 @@ class Application(tk.Tk):
             variable=self.varTransaction,
             value="sale",
         )
-        self.varTransaction.trace_add("read", self.transactionClick)
+        self.varTransaction.trace_add("write", self.transactionClick)
         self.rbtnPurchase.pack()
         self.rbtnSale.pack()
         
